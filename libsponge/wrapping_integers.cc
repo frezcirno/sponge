@@ -2,13 +2,13 @@
 
 using namespace std;
 
-constexpr uint64_t WRAP = 1UL << 32;
-constexpr uint64_t HALF_WRAP = 1UL << 31;
+constexpr uint64_t WRAP = (1UL << 32);
+constexpr uint64_t HALF_WRAP = (1UL << 31);
 
 //! Transform an "absolute" 64-bit sequence number (zero-indexed) into a WrappingInt32
 //! \param n The input absolute 64-bit sequence number
 //! \param isn The initial sequence number
-WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) { return WrappingInt32{static_cast<uint32_t>(n + isn.raw_value())}; }
+WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) { return WrappingInt32{static_cast<uint32_t>(n) + isn.raw_value()}; }
 
 //! Transform a WrappingInt32 into an "absolute" 64-bit sequence number (zero-indexed)
 //! \param n The relative sequence number
