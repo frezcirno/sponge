@@ -20,6 +20,20 @@ class TCPReceiver {
     //! The maximum number of bytes we'll store.
     size_t _capacity;
 
+    //! If has recved syn
+    bool _synd{};
+
+    //! The isn, only available when synd
+    WrappingInt32 _isn{0UL};
+
+    uint64_t _ackno{};
+
+    uint64_t to_index(WrappingInt32 seqno, bool with_syn = false) const {
+        if (!_synd)
+            throw std::runtime_error{"unwrap called with not _synd"};
+        return ::unwrap(seqno, _isn, _ackno) - static_cast<uint64_t>(!with_syn);
+    }
+
   public:
     //! \brief Construct a TCP receiver
     //!
