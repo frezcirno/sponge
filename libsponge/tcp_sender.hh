@@ -33,6 +33,29 @@ class TCPSender {
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
+    class CountDownTimer {
+      private:
+        unsigned int _time;
+        int _timer{};
+
+      public:
+        CountDownTimer() : _time{} {}
+        CountDownTimer(unsigned int time) : _time{time} {}
+        void setup(unsigned int time) { _time = time; }
+        void start() { _timer = _time; }
+        void reset() { _timer = 0; }
+        bool tick(size_t ticks) {
+            if (_timer > 0) {
+                _timer -= ticks;
+                if (_timer <= 0)
+                    return true;
+            }
+            return false;
+        }
+        unsigned int time() const { return _time; }
+        bool stopped() const { return _timer <= 0; }
+    };
+
     //!
     std::list<TCPSegment> _write_queue{};
 
@@ -40,8 +63,7 @@ class TCPSender {
     bool _synd{}, _find{};
 
     //!
-    unsigned int _rto;
-    int _rto_timer{};
+    CountDownTimer _timer;
 
     //! receiver want to get
     uint64_t _recv_ackno{};

@@ -13,7 +13,7 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     : _isn(fixed_isn.value_or(WrappingInt32{random_device()()}))
     , _initial_retransmission_timeout{retx_timeout}
     , _stream(capacity)
-    , _rto{retx_timeout} {}
+    , _timer{retx_timeout} {}
 
 uint64_t TCPSender::bytes_in_flight() const { return _next_seqno - _recv_ackno; }
 
@@ -46,8 +46,8 @@ void TCPSender::fill_window() {
         if (!seg.length_in_sequence_space())
             break;
 
-        if (!_rto_timer)
-            _rto_timer = _rto;
+        if (_timer.stopped())
+            _timer.start();
         _next_seqno += seg.length_in_sequence_space();
         _segments_out.push(seg);
         _write_queue.push_back(seg);
@@ -81,25 +81,25 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
     if (write_out) {
         _retrans_cnt = 0;
-        _rto = _initial_retransmission_timeout;
-        _rto_timer = (_write_queue.empty() ? 0 : _rto);
+        _timer.setup(_initial_retransmission_timeout);
+        if (_write_queue.empty())
+            _timer.reset();
+        else
+            _timer.start();
     }
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) {
-    if (_rto_timer) {
-        _rto_timer -= ms_since_last_tick;
-        if (_rto_timer <= 0) {
-            _segments_out.push(_write_queue.front());
+    if (_timer.tick(ms_since_last_tick)) {
+        _segments_out.push(_write_queue.front());
 
-            if (_recv_win) {
-                _retrans_cnt++;
-                _rto *= 2;
-            }
-
-            _rto_timer = _rto;
+        if (_recv_win) {
+            _retrans_cnt++;
+            _timer.setup(2 * _timer.time());
         }
+
+        _timer.start();
     }
 }
 
