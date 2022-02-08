@@ -3,39 +3,23 @@
 using namespace std;
 
 void TCPReceiver::segment_received(const TCPSegment &seg) {
-    auto &header = seg.header();
+    auto &&header = seg.header();
 
-    if (_synd && header.syn)
+    if (!(syn_rcvd() ^ header.syn))
         return;
 
-    if (header.syn) {
+    if (header.syn)
         _isn = header.seqno;
-        _synd = true;
-    }
 
-    if (_synd) {
-        auto &payload = seg.payload();
-        uint64_t payload_idx = to_index(header.seqno, header.syn);
+    if (syn_rcvd()) {
+        uint64_t index = unwrap(header.seqno, _isn.value(), ackno_absolute());
 
-        if (payload.size()) {
-            _reassembler.push_substring(payload.copy(), payload_idx, false);
-        }
-
-        if (header.fin) {
-            _reassembler.push_substring({}, payload_idx + payload.size(), true);
-        }
+        _reassembler.push_substring(seg.payload().copy(), header.syn ? 0 : index - 1, header.fin);
     }
 }
 
 optional<WrappingInt32> TCPReceiver::ackno() const {
-    if (!_synd)
-        return {};
-    uint32_t ack = _reassembler.stream_out().bytes_written();
-    if (_synd)
-        ack++;
-    if (_reassembler.stream_out().input_ended())
-        ack++;
-    return wrap(ack, _isn);
+    return _isn.has_value() ? wrap(ackno_absolute(), _isn.value()) : optional<WrappingInt32>{};
 }
 
-size_t TCPReceiver::window_size() const { return _reassembler.stream_out().remaining_capacity(); }
+size_t TCPReceiver::window_size() const { return stream_out().remaining_capacity(); }

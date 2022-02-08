@@ -36,31 +36,28 @@ class TCPSender {
     class CountDownTimer {
       private:
         unsigned int _time;
-        int _timer{};
+        int _countdown{};
 
       public:
         CountDownTimer() : _time{} {}
         CountDownTimer(unsigned int time) : _time{time} {}
         void setup(unsigned int time) { _time = time; }
-        void start() { _timer = _time; }
-        void reset() { _timer = 0; }
+        void start() { _countdown = _time; }
+        void reset() { _countdown = 0; }
         bool tick(size_t ticks) {
-            if (_timer > 0) {
-                _timer -= ticks;
-                if (_timer <= 0)
+            if (_countdown > 0) {
+                _countdown -= ticks;
+                if (_countdown <= 0)
                     return true;
             }
             return false;
         }
         unsigned int time() const { return _time; }
-        bool stopped() const { return _timer <= 0; }
+        bool stopped() const { return _countdown <= 0; }
     };
 
     //!
     std::list<TCPSegment> _write_queue{};
-
-    //!
-    bool _synd{}, _find{};
 
     //!
     CountDownTimer _timer;
@@ -72,6 +69,14 @@ class TCPSender {
     uint16_t _recv_win{1};
 
     unsigned int _retrans_cnt{0};
+
+  public:
+    uint64_t recv_ackno_absolute() const { return _recv_ackno; }
+    uint64_t recv_win() const { return _recv_win; }
+    bool syn_sent() const { return next_seqno_absolute(); }
+    bool fin_sent() const { return next_seqno_absolute() == stream_in().bytes_written() + 2; }
+    bool syn_acked() const { return recv_ackno_absolute(); }
+    bool fin_acked() const { return recv_ackno_absolute() == stream_in().bytes_written() + 2; }
 
   public:
     //! Initialize a TCPSender

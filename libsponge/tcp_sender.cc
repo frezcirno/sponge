@@ -24,75 +24,70 @@ void TCPSender::fill_window() {
         TCPSegment seg;
         size_t left_win = _recv_ackno + recv_win - _next_seqno;
 
-        seg.header().seqno = wrap(_next_seqno, _isn);
-
-        if (!_synd) {
+        if (!syn_sent())
             seg.header().syn = true;
-            _synd = true;
-        }
 
         if (seg.length_in_sequence_space() < left_win) {
             size_t readn = min(TCPConfig::MAX_PAYLOAD_SIZE, left_win - seg.length_in_sequence_space());
-            seg.payload() = Buffer(move(_stream.read(readn)));
+            seg.payload() = stream_in().read(readn);
         }
 
         if (seg.length_in_sequence_space() < left_win) {
-            if (!_find && _stream.eof()) {
+            if (!fin_sent() && stream_in().eof())
                 seg.header().fin = true;
-                _find = true;
-            }
         }
 
         if (!seg.length_in_sequence_space())
             break;
 
-        if (_timer.stopped())
-            _timer.start();
+        seg.header().seqno = wrap(_next_seqno, _isn);
         _next_seqno += seg.length_in_sequence_space();
         _segments_out.push(seg);
         _write_queue.push_back(seg);
+        if (_timer.stopped())
+            _timer.start();
     }
 }
 
 //! \param ackno The remote receiver's ackno (acknowledgment number)
 //! \param window_size The remote receiver's advertised window size
 void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
-    // 0----------------------------------------->
-    // ----------[rack..........r+w)------------->
-    // ------------------[..............)-------->
-    uint64_t ackno_unw = unwrap(ackno, _isn, _recv_ackno);
+    uint64_t ackno_abs = unwrap(ackno, _isn, next_seqno_absolute());
 
-    if (ackno_unw < _recv_ackno || _next_seqno < ackno_unw) {
+    if (ackno_abs < _recv_ackno || next_seqno_absolute() < ackno_abs)
         return;
-    }
 
-    _recv_ackno = ackno_unw;
+    _recv_ackno = ackno_abs;
     _recv_win = window_size;
 
     bool write_out = false;
     for (auto i = _write_queue.cbegin(), n = next(i); i != _write_queue.end(); i = n, n = next(i)) {
-        uint64_t seqno = unwrap(i->header().seqno, _isn, _recv_ackno);
-        if (seqno + i->length_in_sequence_space() <= _recv_ackno) {
+        uint64_t seqno_abs = unwrap(i->header().seqno, _isn, next_seqno_absolute());
+        if (seqno_abs + i->length_in_sequence_space() <= _recv_ackno) {
             _write_queue.pop_front();
             write_out = true;
-        } else
+        } else {
             break;
+        }
     }
 
     if (write_out) {
         _retrans_cnt = 0;
         _timer.setup(_initial_retransmission_timeout);
-        if (_write_queue.empty())
-            _timer.reset();
-        else
+        _timer.reset();
+        if (!_write_queue.empty())
             _timer.start();
     }
+
+    fill_window();
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) {
     if (_timer.tick(ms_since_last_tick)) {
-        _segments_out.push(_write_queue.front());
+        if (_write_queue.empty())
+            throw std::runtime_error{"write queue is empty"};
+        segments_out().push(_write_queue.front());
 
         if (_recv_win) {
             _retrans_cnt++;
@@ -105,4 +100,7 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 
 unsigned int TCPSender::consecutive_retransmissions() const { return _retrans_cnt; }
 
-void TCPSender::send_empty_segment() { _segments_out.push({}); }
+void TCPSender::send_empty_segment() {
+    segments_out().push({});
+    segments_out().back().header().seqno = wrap(next_seqno_absolute(), _isn);
+}

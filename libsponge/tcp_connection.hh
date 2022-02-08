@@ -21,6 +21,104 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
+    size_t _time_since_last_segment_received{};
+
+    bool _error{false};
+
+  public:
+    ByteStream &outbound_stream() { return _sender.stream_in(); }
+
+    const ByteStream &outbound_stream() const { return _sender.stream_in(); }
+
+    const ByteStream &inbound_stream() const { return _receiver.stream_out(); }
+
+  private:
+    size_t _sender_flush() {
+        auto &seg_out = _sender.segments_out();
+        size_t res = seg_out.size();
+        while (seg_out.size()) {
+            auto &seg = seg_out.front();
+            __set_ack(seg);
+            segments_out().push(std::move(seg));
+            seg_out.pop();
+        }
+
+        return res;
+    }
+
+    void __set_ack(TCPSegment &seg) const {
+        if (_receiver.ackno().has_value()) {
+            seg.header().ack = true;
+            seg.header().ackno = _receiver.ackno().value();
+            seg.header().win = std::min(static_cast<size_t>(UINT16_MAX), _receiver.window_size());
+        }
+    }
+
+    void _set_error() {
+        outbound_stream().set_error();
+        inbound_stream().set_error();
+        _linger_after_streams_finish = false;
+        _error = true;
+    }
+
+    void _reset() {
+        _sender.segments_out() = {};
+
+        _sender.send_empty_segment();
+        _sender.segments_out().front().header().rst = true;
+        segments_out().push(_sender.segments_out().front());
+        _sender.segments_out().pop();
+    }
+
+  public:
+    bool _closed() const { return !_receiver.syn_rcvd() && !_sender.syn_sent(); }
+
+    bool _listen() const { return _closed(); }
+
+    bool _syn_sent() const { return _sender.syn_sent() && !_receiver.syn_rcvd() && !_sender.syn_acked(); }
+
+    bool _syn_rcvd() const { return _sender.syn_sent() && _receiver.syn_rcvd() && !_sender.syn_acked(); }
+
+    bool _established() const { return _sender.syn_sent() && _receiver.syn_rcvd() && _sender.syn_acked(); }
+
+    bool _fin_wait_1() const { return _sender.fin_sent() && !_receiver.fin_rcvd() && !_sender.fin_acked(); }
+
+    bool _closing() const { return _sender.fin_sent() && _receiver.fin_rcvd() && !_sender.fin_acked(); }
+
+    bool _fin_wait_2() const { return _sender.fin_sent() && !_receiver.fin_rcvd() && _sender.fin_acked(); }
+
+    bool _time_wait() const { return _sender.fin_sent() && _receiver.fin_rcvd() && _sender.fin_acked(); }
+
+    bool _close_wait() const { return !_sender.fin_sent() && _receiver.fin_rcvd() && !_sender.fin_acked(); }
+
+    bool _last_ack() const { return _sender.fin_sent() && _receiver.fin_rcvd() && !_sender.fin_acked(); }
+
+    const TCPState _state() const {
+        if (_closed())
+            return TCPState::State::CLOSED;
+        if (_listen())
+            return TCPState::State::LISTEN;
+        if (_syn_sent())
+            return TCPState::State::SYN_SENT;
+        if (_syn_rcvd())
+            return TCPState::State::SYN_RCVD;
+        if (_established())
+            return TCPState::State::ESTABLISHED;
+        if (_fin_wait_1())
+            return TCPState::State::FIN_WAIT_1;
+        if (_closing())
+            return TCPState::State::CLOSE_WAIT;
+        if (_fin_wait_2())
+            return TCPState::State::FIN_WAIT_2;
+        if (_time_wait())
+            return TCPState::State::TIME_WAIT;
+        if (_close_wait())
+            return TCPState::State::CLOSE_WAIT;
+        if (_last_ack())
+            return TCPState::State::LAST_ACK;
+        return TCPState::State::RESET;
+    }
+
   public:
     //! \name "Input" interface for the writer
     //!@{

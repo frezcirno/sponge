@@ -17,21 +17,20 @@ class TCPReceiver {
     //! Our data structure for re-assembling bytes.
     StreamReassembler _reassembler;
 
-    //! The maximum number of bytes we'll store.
-    size_t _capacity;
+    //! The isn
+    std::optional<WrappingInt32> _isn{};
 
-    //! If has recved syn
-    bool _synd{};
+  public:
+    bool syn_rcvd() const { return _isn.has_value(); }
+    bool fin_rcvd() const { return stream_out().input_ended(); }
 
-    //! The isn, only available when synd
-    WrappingInt32 _isn{0UL};
-
-    uint64_t _ackno{};
-
-    uint64_t to_index(WrappingInt32 seqno, bool with_syn = false) const {
-        if (!_synd)
-            throw std::runtime_error{"unwrap called with not _synd"};
-        return ::unwrap(seqno, _isn, _ackno) - static_cast<uint64_t>(!with_syn);
+    uint64_t ackno_absolute() const {
+        uint64_t ack = stream_out().bytes_written();
+        if (syn_rcvd())
+            ack++;
+        if (fin_rcvd())
+            ack++;
+        return ack;
     }
 
   public:
@@ -39,7 +38,7 @@ class TCPReceiver {
     //!
     //! \param capacity the maximum number of bytes that the receiver will
     //!                 store in its buffers at any give time.
-    TCPReceiver(const size_t capacity) : _reassembler(capacity), _capacity(capacity) {}
+    TCPReceiver(const size_t capacity) : _reassembler(capacity) {}
 
     //! \name Accessors to provide feedback to the remote TCPSender
     //!@{

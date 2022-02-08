@@ -1,4 +1,5 @@
 #include "stream_reassembler.hh"
+#include <limits>
 
 using namespace std;
 
@@ -20,11 +21,11 @@ void StreamReassembler::__cache_append(const uint64_t index, const std::string &
     _cache[index].append(data);
 }
 
-void StreamReassembler::cache_push(const uint64_t index, const std::string &data) {
+bool StreamReassembler::cache_push(const uint64_t index, const std::string &data) {
     auto [i, d] = StreamReassembler::clamp(index, data, unassembled(), win_end());
 
     if (d.empty())
-        return;
+        return false;
 
     size_t ie = i + d.size();
     for (auto [k, v] : _cache) {
@@ -33,13 +34,14 @@ void StreamReassembler::cache_push(const uint64_t index, const std::string &data
             if (i < k)
                 __cache_add(i, d.substr(0, k - i));
             if (ie <= ke)
-                return;
+                return true;
             d = d.substr(ke - i);
             i = ke;
         }
     }
 
     __cache_add(i, d);
+    return true;
 }
 
 std::pair<uint64_t, std::string> StreamReassembler::clamp(const size_t index,
@@ -62,11 +64,11 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     if (eof)
         _eof = index + data.size();
 
-    cache_push(index, data);
-
-    while (_cache.size() && (head = _cache.begin()->first) <= unassembled()) {
-        assemble(_cache[head]);
-        __cache_del(head);
+    if (cache_push(index, data)) {
+        while (_cache.size() && (head = _cache.begin()->first) <= unassembled()) {
+            assemble(_cache[head]);
+            __cache_del(head);
+        }
     }
 
     if (unassembled() == _eof)
