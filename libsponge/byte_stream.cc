@@ -34,7 +34,7 @@ string ByteStream::peek_output(const size_t len) const {
     size_t l = len;
     auto it = _data.begin();
 
-    while (it != _data.end() && l > it->size()) {
+    while (it != _data.end() && l >= it->size()) {
         l -= it->size();
         res.append(*it++);
     }
@@ -50,7 +50,7 @@ void ByteStream::pop_output(const size_t len) {
     size_t l = len;
     size_t fs;
 
-    while (_data.size() && l > (fs = _data.front().size())) {
+    while (_data.size() && l >= (fs = _data.front().size())) {
         l -= fs;
         _size -= fs;
         _has_read += fs;
@@ -71,7 +71,7 @@ std::string ByteStream::read(const size_t len) {
     string res;
     size_t l = len;
 
-    while (_data.size() && l > _data.front().size()) {
+    while (_data.size() && l >= _data.front().size()) {
         l -= _data.front().size();
         res.append(_data.front());
         _data.pop_front();
