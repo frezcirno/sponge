@@ -61,10 +61,10 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     _recv_win = window_size;
 
     bool write_out = false;
-    for (auto i = _write_queue.cbegin(), n = next(i); i != _write_queue.end(); i = n, n = next(i)) {
-        uint64_t seqno_abs = unwrap(i->header().seqno, _isn, next_seqno_absolute());
-        if (seqno_abs + i->length_in_sequence_space() <= _recv_ackno) {
-            _write_queue.pop_front();
+    for (auto it = _write_queue.cbegin(); it != _write_queue.end();) {
+        uint64_t seqno_abs = unwrap(it->header().seqno, _isn, next_seqno_absolute());
+        if (seqno_abs + it->length_in_sequence_space() <= _recv_ackno) {
+            it = _write_queue.erase(it);
             write_out = true;
         } else {
             break;
