@@ -1,12 +1,15 @@
 #ifndef SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 #define SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 
+#include "arp_message.hh"
 #include "ethernet_frame.hh"
 #include "tcp_over_ip.hh"
 #include "tun.hh"
 
+#include <list>
 #include <optional>
 #include <queue>
+#include <unordered_map>
 
 //! \brief A "network interface" that connects IP (the internet layer, or network layer)
 //! with Ethernet (the network access layer, or link layer).
@@ -39,6 +42,41 @@ class NetworkInterface {
 
     //! outbound queue of Ethernet frames that the NetworkInterface wants sent
     std::queue<EthernetFrame> _frames_out{};
+
+    struct ARPEntry {
+        std::optional<EthernetAddress> addr{};
+        size_t update_ts{};
+        size_t request_ts{};
+    };
+    std::unordered_map<uint32_t, ARPEntry> _arp_tbl{};
+    std::unordered_map<uint32_t, std::list<EthernetFrame>> _pending_frame{};
+    size_t _tick{42};
+
+    void learn(uint32_t ip, EthernetAddress eth) {
+        _arp_tbl[ip].addr = eth;
+        _arp_tbl[ip].update_ts = _tick;
+
+        for (auto &&frame : _pending_frame[ip]) {
+            frame.header().dst = eth;
+            frames_out().push(frame);
+        }
+
+        _pending_frame.erase(ip);
+    }
+
+    void arp_send(const EthernetAddress &target, uint16_t opcode, uint32_t target_ip);
+
+    void arp_request(uint32_t ip_addr) {
+        if (_arp_tbl.count(ip_addr) && !_arp_tbl[ip_addr].addr.has_value())
+            return;
+
+        arp_send(ETHERNET_BROADCAST, ARPMessage::OPCODE_REQUEST, ip_addr);
+        _arp_tbl[ip_addr].request_ts = _tick;
+    }
+
+    void arp_reply(const EthernetAddress &target, uint32_t target_ip) {
+        arp_send(target, ARPMessage::OPCODE_REPLY, target_ip);
+    }
 
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
