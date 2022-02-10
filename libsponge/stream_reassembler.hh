@@ -20,14 +20,13 @@ class StreamReassembler {
     size_t assemble(const std::string &data) { return _output.write(data); }
     uint64_t unassembled() const { return _output.bytes_written(); }
     uint64_t win_end() const { return _output.bytes_read() + _capacity; }
-    void __cache_add(const uint64_t index, const std::string &data);
+    void __cache_add(const uint64_t index, const std::string_view &data);
     void __cache_del(const uint64_t index);
-    void __cache_append(const uint64_t index, const std::string &data);
     bool cache_push(const uint64_t index, const std::string &data);
-    static std::pair<uint64_t, std::string> clamp(const size_t index,
-                                                  const std::string &data,
-                                                  uint64_t start,
-                                                  uint64_t end);
+    static std::pair<uint64_t, std::string_view> clamp(const size_t index,
+                                                       const std::string &data,
+                                                       uint64_t start,
+                                                       uint64_t end);
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.

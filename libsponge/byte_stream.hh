@@ -1,8 +1,8 @@
 #ifndef SPONGE_LIBSPONGE_BYTE_STREAM_HH
 #define SPONGE_LIBSPONGE_BYTE_STREAM_HH
 
-#include <string>
 #include <deque>
+#include <string>
 
 //! \brief An in-order byte stream.
 
@@ -23,6 +23,9 @@ class ByteStream {
     size_t _size{}, _cap;
     size_t _has_read{}, _has_write{};
     bool _end{};
+
+  public:
+    size_t write(std::string &&data);
 
   public:
     //! Construct a stream with room for `capacity` bytes.

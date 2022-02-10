@@ -22,26 +22,31 @@ void TCPSender::fill_window() {
 
     while (_next_seqno < _recv_ackno + recv_win) {
         TCPSegment seg;
+        size_t seg_size = 0;
         size_t left_win = _recv_ackno + recv_win - _next_seqno;
 
-        if (!syn_sent())
+        if (!syn_sent()) {
             seg.header().syn = true;
-
-        if (seg.length_in_sequence_space() < left_win) {
-            size_t readn = min(TCPConfig::MAX_PAYLOAD_SIZE, left_win - seg.length_in_sequence_space());
-            seg.payload() = stream_in().read(readn);
+            seg_size++;
         }
 
-        if (seg.length_in_sequence_space() < left_win) {
-            if (!fin_sent() && stream_in().eof())
-                seg.header().fin = true;
+        if (seg_size < left_win) {
+            size_t readn = min(TCPConfig::MAX_PAYLOAD_SIZE, left_win - seg_size);
+            auto data = stream_in().read(readn);
+            seg_size += data.size();
+            seg.payload() = move(data);
         }
 
-        if (!seg.length_in_sequence_space())
+        if (seg_size < left_win && !fin_sent() && stream_in().eof()) {
+            seg.header().fin = true;
+            seg_size++;
+        }
+
+        if (!seg_size)
             break;
 
         seg.header().seqno = wrap(_next_seqno, _isn);
-        _next_seqno += seg.length_in_sequence_space();
+        _next_seqno += seg_size;
         _segments_out.push(seg);
         _write_queue.push_back(seg);
         if (_timer.stopped())
@@ -61,7 +66,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     _recv_win = window_size;
 
     bool write_out = false;
-    for (auto it = _write_queue.cbegin(); it != _write_queue.end();) {
+    for (auto it = _write_queue.begin(); it != _write_queue.end();) {
         uint64_t seqno_abs = unwrap(it->header().seqno, _isn, next_seqno_absolute());
         if (seqno_abs + it->length_in_sequence_space() <= _recv_ackno) {
             it = _write_queue.erase(it);
@@ -77,16 +82,13 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _timer.reset();
         if (!_write_queue.empty())
             _timer.start();
+        fill_window();
     }
-
-    fill_window();
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) {
     if (_timer.tick(ms_since_last_tick)) {
-        if (_write_queue.empty())
-            throw std::runtime_error{"write queue is empty"};
         segments_out().push(_write_queue.front());
 
         if (_recv_win) {

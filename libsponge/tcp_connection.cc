@@ -29,6 +29,7 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (seg.header().ack) {
         _sender.ack_received(seg.header().ackno, seg.header().win);
         _sender.fill_window();
+        _sender_flush();
     }
 
     _receiver.segment_received(seg);
@@ -37,14 +38,14 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         _sender.fill_window();
         if (_sender.segments_out().empty())
             _sender.send_empty_segment();
+        _sender_flush();
     } else if (_receiver.syn_rcvd() && seg.header().seqno == _receiver.ackno().value() - 1) {
         _sender.send_empty_segment();
+        _sender_flush();
     }
 
     if (_receiver.fin_rcvd() && !outbound_stream().eof())
         _linger_after_streams_finish = false;
-
-    _sender_flush();
 }
 
 //! \brief Is the connection still alive in any way?

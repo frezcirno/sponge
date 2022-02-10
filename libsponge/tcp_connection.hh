@@ -33,17 +33,14 @@ class TCPConnection {
     const ByteStream &inbound_stream() const { return _receiver.stream_out(); }
 
   private:
-    size_t _sender_flush() {
+    void _sender_flush() {
         auto &seg_out = _sender.segments_out();
-        size_t res = seg_out.size();
         while (seg_out.size()) {
             auto &seg = seg_out.front();
             __set_ack(seg);
             segments_out().push(std::move(seg));
             seg_out.pop();
         }
-
-        return res;
     }
 
     void __set_ack(TCPSegment &seg) const {

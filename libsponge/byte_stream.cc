@@ -4,6 +4,30 @@ using namespace std;
 
 ByteStream::ByteStream(const size_t capacity) : _cap{capacity} {}
 
+size_t ByteStream::write(string &&data) {
+    size_t data_size = data.size();
+
+    if (!data_size)
+        return 0;
+
+    if (data_size + _size > _cap) {
+        size_t left = _cap - _size;
+
+        if (!left)
+            return 0;
+
+        _data.push_back(move(data.substr(0, left)));
+        _size = _cap;
+        _has_write += left;
+        return left;
+    }
+
+    _data.push_back(move(data));
+    _size += data_size;
+    _has_write += data_size;
+    return data_size;
+}
+
 size_t ByteStream::write(const string &data) {
     size_t data_size = data.size();
 
@@ -69,6 +93,7 @@ void ByteStream::pop_output(const size_t len) {
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
     string res;
+    res.reserve(min(len, buffer_size()));
     size_t l = len;
 
     while (_data.size() && l >= _data.front().size()) {

@@ -1,4 +1,5 @@
 #include "stream_reassembler.hh"
+
 #include <limits>
 
 using namespace std;
@@ -6,7 +7,7 @@ using namespace std;
 StreamReassembler::StreamReassembler(const size_t capacity)
     : _output(capacity), _capacity(capacity), _eof{numeric_limits<size_t>::max()} {}
 
-void StreamReassembler::__cache_add(const uint64_t index, const std::string &data) {
+void StreamReassembler::__cache_add(const uint64_t index, const std::string_view &data) {
     _unass_bytes += data.size();
     _cache[index] = data;
 }
@@ -14,11 +15,6 @@ void StreamReassembler::__cache_add(const uint64_t index, const std::string &dat
 void StreamReassembler::__cache_del(const uint64_t index) {
     _unass_bytes -= _cache[index].size();
     _cache.erase(index);
-}
-
-void StreamReassembler::__cache_append(const uint64_t index, const std::string &data) {
-    _unass_bytes += data.size();
-    _cache[index].append(data);
 }
 
 bool StreamReassembler::cache_push(const uint64_t index, const std::string &data) {
@@ -44,15 +40,15 @@ bool StreamReassembler::cache_push(const uint64_t index, const std::string &data
     return true;
 }
 
-std::pair<uint64_t, std::string> StreamReassembler::clamp(const size_t index,
-                                                          const std::string &data,
-                                                          uint64_t istart,
-                                                          uint64_t iend) {
+std::pair<uint64_t, std::string_view> StreamReassembler::clamp(const size_t index,
+                                                               const std::string &data,
+                                                               uint64_t istart,
+                                                               uint64_t iend) {
     size_t begin = (istart > index ? istart - index : 0);
     size_t end = (iend > index ? iend - index : 0);
     if (begin >= data.size())
         return {};
-    return {index + begin, move(data.substr(begin, end - begin))};
+    return {index + begin, std::string_view(data).substr(begin, end - begin)};
 }
 
 //! \details This function accepts a substring (aka a segment) of bytes,
