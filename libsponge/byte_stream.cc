@@ -16,13 +16,13 @@ size_t ByteStream::write(string &&data) {
         if (!left)
             return 0;
 
-        _data.push_back(move(data.substr(0, left)));
+        _data.emplace_back(data.substr(0, left));
         _size = _cap;
         _has_write += left;
         return left;
     }
 
-    _data.push_back(move(data));
+    _data.emplace_back(move(data));
     _size += data_size;
     _has_write += data_size;
     return data_size;
@@ -40,13 +40,13 @@ size_t ByteStream::write(const string &data) {
         if (!left)
             return 0;
 
-        _data.push_back(move(data.substr(0, left)));
+        _data.emplace_back(data.substr(0, left));
         _size = _cap;
         _has_write += left;
         return left;
     }
 
-    _data.push_back(data);
+    _data.emplace_back(std::string(data));
     _size += data_size;
     _has_write += data_size;
     return data_size;
@@ -55,6 +55,7 @@ size_t ByteStream::write(const string &data) {
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const {
     string res;
+    res.reserve(min(len, buffer_size()));
     size_t l = len;
     auto it = _data.begin();
 
@@ -64,7 +65,7 @@ string ByteStream::peek_output(const size_t len) const {
     }
 
     if (it != _data.end() && l)
-        res.append(it->begin(), it->begin() + l);
+        res.append(it->str().substr(0, l));
 
     return res;
 }
@@ -84,7 +85,7 @@ void ByteStream::pop_output(const size_t len) {
     if (_data.size() && l) {
         _size -= l;
         _has_read += l;
-        _data.front() = _data.front().substr(l);
+        _data.front().remove_prefix(l);
     }
 }
 
@@ -103,8 +104,8 @@ std::string ByteStream::read(const size_t len) {
     }
 
     if (_data.size() && l) {
-        res.append(_data.front().begin(), _data.front().begin() + l);
-        _data.front() = _data.front().substr(l);
+        res.append(_data.front().str().substr(0, l));
+        _data.front().remove_prefix(l);
     }
 
     _size -= res.size();
