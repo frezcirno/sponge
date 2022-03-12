@@ -2,8 +2,6 @@
 
 using namespace std;
 
-ByteStream::ByteStream(const size_t capacity) : _cap{capacity} {}
-
 size_t ByteStream::write(string &&data) {
     size_t data_size = data.size();
 
@@ -112,19 +110,3 @@ std::string ByteStream::read(const size_t len) {
     _has_read += res.size();
     return res;
 }
-
-void ByteStream::end_input() { _end = true; }
-
-bool ByteStream::input_ended() const { return _end; }
-
-size_t ByteStream::buffer_size() const { return _size; }
-
-bool ByteStream::buffer_empty() const { return !buffer_size(); }
-
-bool ByteStream::eof() const { return input_ended() && buffer_empty(); }
-
-size_t ByteStream::bytes_written() const { return _has_write; }
-
-size_t ByteStream::bytes_read() const { return _has_read; }
-
-size_t ByteStream::remaining_capacity() const { return _cap - buffer_size(); }
