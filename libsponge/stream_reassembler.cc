@@ -7,16 +7,6 @@ using namespace std;
 StreamReassembler::StreamReassembler(const size_t capacity)
     : _output(capacity), _capacity(capacity), _eof{numeric_limits<size_t>::max()} {}
 
-void StreamReassembler::__cache_add(const uint64_t index, const std::string_view &data) {
-    _unass_bytes += data.size();
-    _cache[index] = data;
-}
-
-void StreamReassembler::__cache_del(const uint64_t index) {
-    _unass_bytes -= _cache[index].size();
-    _cache.erase(index);
-}
-
 bool StreamReassembler::cache_push(const uint64_t index, const std::string &data) {
     auto [i, d] = StreamReassembler::clamp(index, data, unassembled(), win_end());
 
@@ -70,7 +60,3 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     if (unassembled() == _eof)
         _output.end_input();
 }
-
-size_t StreamReassembler::unassembled_bytes() const { return _unass_bytes; }
-
-bool StreamReassembler::empty() const { return _cache.empty(); }

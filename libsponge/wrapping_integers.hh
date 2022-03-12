@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <ostream>
 
+constexpr uint64_t WRAP = (1UL << 32);
+constexpr uint64_t HALF_WRAP = (1UL << 31);
+
 //! \brief A 32-bit integer, expressed relative to an arbitrary initial sequence number (ISN)
 //! \note This is used to express TCP sequence numbers (seqno) and acknowledgment numbers (ackno)
 class WrappingInt32 {
@@ -21,7 +24,9 @@ class WrappingInt32 {
 //! \param n the absolute sequence number
 //! \param isn the initial sequence number
 //! \returns the relative sequence number
-WrappingInt32 wrap(uint64_t n, WrappingInt32 isn);
+static inline WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
+    return WrappingInt32{static_cast<uint32_t>(n) + isn.raw_value()};
+}
 
 //! Transform a 32-bit relative sequence number into a 64-bit absolute sequence number (zero-indexed)
 //! \param n The relative sequence number
@@ -33,7 +38,15 @@ WrappingInt32 wrap(uint64_t n, WrappingInt32 isn);
 //! runs from the local TCPSender to the remote TCPReceiver and has one ISN,
 //! and the other stream runs from the remote TCPSender to the local TCPReceiver and
 //! has a different ISN.
-uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint);
+static inline uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
+    uint32_t m = n.raw_value() - isn.raw_value();
+    uint64_t x = (checkpoint & 0xFFFFFFFF00000000ULL) | m;
+    if (x + HALF_WRAP < checkpoint)
+        return x + WRAP;
+    if (x < WRAP || x < checkpoint + HALF_WRAP)
+        return x;
+    return x - WRAP;
+}
 
 //! \name Helper functions
 //!@{

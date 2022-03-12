@@ -20,8 +20,14 @@ class StreamReassembler {
     size_t assemble(const std::string &data) { return _output.write(data); }
     uint64_t unassembled() const { return _output.bytes_written(); }
     uint64_t win_end() const { return _output.bytes_read() + _capacity; }
-    void __cache_add(const uint64_t index, const std::string_view &data);
-    void __cache_del(const uint64_t index);
+    void __cache_add(const uint64_t index, const std::string_view &data) {
+        _unass_bytes += data.size();
+        _cache[index] = data;
+    }
+    void __cache_del(const uint64_t index) {
+        _unass_bytes -= _cache[index].size();
+        _cache.erase(index);
+    }
     bool cache_push(const uint64_t index, const std::string &data);
     static std::pair<uint64_t, std::string_view> clamp(const size_t index,
                                                        const std::string &data,
@@ -54,11 +60,11 @@ class StreamReassembler {
     //!
     //! \note If the byte at a particular index has been pushed more than once, it
     //! should only be counted once for the purpose of this function.
-    size_t unassembled_bytes() const;
+    size_t unassembled_bytes() const { return _unass_bytes; }
 
     //! \brief Is the internal state empty (other than the output stream)?
     //! \returns `true` if no substrings are waiting to be assembled
-    bool empty() const;
+    bool empty() const { return _cache.empty(); }
 };
 
 #endif  // SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH

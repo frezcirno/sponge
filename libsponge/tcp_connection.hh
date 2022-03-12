@@ -121,17 +121,26 @@ class TCPConnection {
     //!@{
 
     //! \brief Initiate a connection by sending a SYN segment
-    void connect();
+    void connect() {
+        _sender.fill_window();
+        _sender_flush();
+    }
 
     //! \brief Write data to the outbound byte stream, and send it over TCP if possible
     //! \returns the number of bytes from `data` that were actually written.
     size_t write(const std::string &data);
 
     //! \returns the number of `bytes` that can be written right now.
-    size_t remaining_outbound_capacity() const;
+    size_t remaining_outbound_capacity() const { return outbound_stream().remaining_capacity(); }
 
     //! \brief Shut down the outbound byte stream (still allows reading incoming data)
-    void end_input_stream();
+    void end_input_stream() {
+        if (!active())
+            return;
+        outbound_stream().end_input();
+        _sender.fill_window();
+        _sender_flush();
+    }
     //!@}
 
     //! \name "Output" interface for the reader
@@ -145,11 +154,11 @@ class TCPConnection {
 
     //!@{
     //! \brief number of bytes sent and not yet acknowledged, counting SYN/FIN each as one byte
-    size_t bytes_in_flight() const;
+    size_t bytes_in_flight() const { return _sender.bytes_in_flight(); }
     //! \brief number of bytes not yet reassembled
-    size_t unassembled_bytes() const;
+    size_t unassembled_bytes() const { return _receiver.unassembled_bytes(); }
     //! \brief Number of milliseconds since the last segment was received
-    size_t time_since_last_segment_received() const;
+    size_t time_since_last_segment_received() const { return _time_since_last_segment_received; }
     //!< \brief summarize the state of the sender, receiver, and the connection
     TCPState state() const { return {_sender, _receiver, active(), _linger_after_streams_finish}; };
     //!@}

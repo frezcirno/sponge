@@ -15,8 +15,6 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , _stream(capacity)
     , _timer{retx_timeout} {}
 
-uint64_t TCPSender::bytes_in_flight() const { return _next_seqno - _recv_ackno; }
-
 void TCPSender::fill_window() {
     uint16_t recv_win = _recv_win ? _recv_win : 1;
 
@@ -99,8 +97,6 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
         _timer.start();
     }
 }
-
-unsigned int TCPSender::consecutive_retransmissions() const { return _retrans_cnt; }
 
 void TCPSender::send_empty_segment() {
     segments_out().push({});

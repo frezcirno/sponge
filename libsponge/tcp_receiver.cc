@@ -17,9 +17,3 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
         _reassembler.push_substring(seg.payload().copy(), header.syn ? 0 : index - 1, header.fin);
     }
 }
-
-optional<WrappingInt32> TCPReceiver::ackno() const {
-    return _isn.has_value() ? wrap(ackno_absolute(), _isn.value()) : optional<WrappingInt32>{};
-}
-
-size_t TCPReceiver::window_size() const { return stream_out().remaining_capacity(); }

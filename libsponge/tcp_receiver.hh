@@ -48,7 +48,9 @@ class TCPReceiver {
     //!
     //! This is the beginning of the receiver's window, or in other words, the sequence number
     //! of the first byte in the stream that the receiver hasn't received.
-    std::optional<WrappingInt32> ackno() const;
+    std::optional<WrappingInt32> ackno() const {
+        return _isn.has_value() ? wrap(ackno_absolute(), _isn.value()) : std::optional<WrappingInt32>{};
+    }
 
     //! \brief The window size that should be sent to the peer
     //!
@@ -60,7 +62,7 @@ class TCPReceiver {
     //! the first byte that falls after the window (and will not be
     //! accepted by the receiver) and (b) the sequence number of the
     //! beginning of the window (the ackno).
-    size_t window_size() const;
+    size_t window_size() const { return stream_out().remaining_capacity(); }
     //!@}
 
     //! \brief number of bytes stored but not yet reassembled
