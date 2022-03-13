@@ -21,10 +21,10 @@ class TCPReceiver {
     std::optional<WrappingInt32> _isn{};
 
   public:
-    bool syn_rcvd() const { return _isn.has_value(); }
-    bool fin_rcvd() const { return stream_out().input_ended(); }
+    bool syn_rcvd() const noexcept { return _isn.has_value(); }
+    bool fin_rcvd() const noexcept { return stream_out().input_ended(); }
 
-    uint64_t ackno_absolute() const {
+    uint64_t ackno_absolute() const noexcept {
         uint64_t ack = stream_out().bytes_written();
         if (syn_rcvd())
             ack++;
@@ -48,7 +48,7 @@ class TCPReceiver {
     //!
     //! This is the beginning of the receiver's window, or in other words, the sequence number
     //! of the first byte in the stream that the receiver hasn't received.
-    std::optional<WrappingInt32> ackno() const {
+    std::optional<WrappingInt32> ackno() const noexcept {
         return _isn.has_value() ? wrap(ackno_absolute(), _isn.value()) : std::optional<WrappingInt32>{};
     }
 
@@ -62,19 +62,19 @@ class TCPReceiver {
     //! the first byte that falls after the window (and will not be
     //! accepted by the receiver) and (b) the sequence number of the
     //! beginning of the window (the ackno).
-    size_t window_size() const { return stream_out().remaining_capacity(); }
+    size_t window_size() const noexcept { return stream_out().remaining_capacity(); }
     //!@}
 
     //! \brief number of bytes stored but not yet reassembled
-    size_t unassembled_bytes() const { return _reassembler.unassembled_bytes(); }
+    size_t unassembled_bytes() const noexcept { return _reassembler.unassembled_bytes(); }
 
     //! \brief handle an inbound segment
     void segment_received(const TCPSegment &seg);
 
     //! \name "Output" interface for the reader
     //!@{
-    ByteStream &stream_out() { return _reassembler.stream_out(); }
-    const ByteStream &stream_out() const { return _reassembler.stream_out(); }
+    ByteStream &stream_out() noexcept { return _reassembler.stream_out(); }
+    const ByteStream &stream_out() const noexcept { return _reassembler.stream_out(); }
     //!@}
 };
 

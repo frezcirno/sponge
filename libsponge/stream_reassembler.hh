@@ -52,19 +52,19 @@ class StreamReassembler {
 
     //! \name Access the reassembled byte stream
     //!@{
-    const ByteStream &stream_out() const { return _output; }
-    ByteStream &stream_out() { return _output; }
+    const ByteStream &stream_out() const noexcept { return _output; }
+    ByteStream &stream_out() noexcept { return _output; }
     //!@}
 
     //! The number of bytes in the substrings stored but not yet reassembled
     //!
     //! \note If the byte at a particular index has been pushed more than once, it
     //! should only be counted once for the purpose of this function.
-    size_t unassembled_bytes() const { return _unass_bytes; }
+    size_t unassembled_bytes() const noexcept { return _unass_bytes; }
 
     //! \brief Is the internal state empty (other than the output stream)?
     //! \returns `true` if no substrings are waiting to be assembled
-    bool empty() const { return _cache.empty(); }
+    bool empty() const noexcept { return _cache.empty(); }
 };
 
 #endif  // SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH

@@ -41,10 +41,10 @@ class TCPSender {
       public:
         CountDownTimer() : _time{} {}
         CountDownTimer(unsigned int time) : _time{time} {}
-        void setup(unsigned int time) { _time = time; }
-        void start() { _countdown = _time; }
-        void reset() { _countdown = 0; }
-        bool tick(size_t ticks) {
+        void setup(unsigned int time) noexcept { _time = time; }
+        void start() noexcept { _countdown = _time; }
+        void reset() noexcept { _countdown = 0; }
+        bool tick(size_t ticks) noexcept {
             if (_countdown > 0) {
                 _countdown -= ticks;
                 if (_countdown <= 0)
@@ -52,8 +52,8 @@ class TCPSender {
             }
             return false;
         }
-        unsigned int time() const { return _time; }
-        bool stopped() const { return _countdown <= 0; }
+        unsigned int time() const noexcept { return _time; }
+        bool stopped() const noexcept { return _countdown <= 0; }
     };
 
     //!
@@ -71,12 +71,12 @@ class TCPSender {
     unsigned int _retrans_cnt{0};
 
   public:
-    uint64_t recv_ackno_absolute() const { return _recv_ackno; }
-    uint64_t recv_win() const { return _recv_win; }
-    bool syn_sent() const { return next_seqno_absolute(); }
-    bool fin_sent() const { return next_seqno_absolute() == stream_in().bytes_written() + 2; }
-    bool syn_acked() const { return recv_ackno_absolute(); }
-    bool fin_acked() const { return recv_ackno_absolute() == stream_in().bytes_written() + 2; }
+    uint64_t recv_ackno_absolute() const noexcept { return _recv_ackno; }
+    uint64_t recv_win() const noexcept { return _recv_win; }
+    bool syn_sent() const noexcept { return next_seqno_absolute(); }
+    bool fin_sent() const noexcept { return next_seqno_absolute() == stream_in().bytes_written() + 2; }
+    bool syn_acked() const noexcept { return recv_ackno_absolute(); }
+    bool fin_acked() const noexcept { return recv_ackno_absolute() == stream_in().bytes_written() + 2; }
 
   public:
     //! Initialize a TCPSender
@@ -86,8 +86,8 @@ class TCPSender {
 
     //! \name "Input" interface for the writer
     //!@{
-    ByteStream &stream_in() { return _stream; }
-    const ByteStream &stream_in() const { return _stream; }
+    ByteStream &stream_in() noexcept { return _stream; }
+    const ByteStream &stream_in() const noexcept { return _stream; }
     //!@}
 
     //! \name Methods that can cause the TCPSender to send a segment
@@ -112,26 +112,26 @@ class TCPSender {
     //! \brief How many sequence numbers are occupied by segments sent but not yet acknowledged?
     //! \note count is in "sequence space," i.e. SYN and FIN each count for one byte
     //! (see TCPSegment::length_in_sequence_space())
-    size_t bytes_in_flight() const { return _next_seqno - _recv_ackno; }
+    size_t bytes_in_flight() const noexcept { return _next_seqno - _recv_ackno; }
 
     //! \brief Number of consecutive retransmissions that have occurred in a row
-    unsigned int consecutive_retransmissions() const { return _retrans_cnt; }
+    unsigned int consecutive_retransmissions() const noexcept { return _retrans_cnt; }
 
     //! \brief TCPSegments that the TCPSender has enqueued for transmission.
     //! \note These must be dequeued and sent by the TCPConnection,
     //! which will need to fill in the fields that are set by the TCPReceiver
     //! (ackno and window size) before sending.
-    std::queue<TCPSegment> &segments_out() { return _segments_out; }
+    std::queue<TCPSegment> &segments_out() noexcept { return _segments_out; }
     //!@}
 
     //! \name What is the next sequence number? (used for testing)
     //!@{
 
     //! \brief absolute seqno for the next byte to be sent
-    uint64_t next_seqno_absolute() const { return _next_seqno; }
+    uint64_t next_seqno_absolute() const noexcept { return _next_seqno; }
 
     //! \brief relative seqno for the next byte to be sent
-    WrappingInt32 next_seqno() const { return wrap(_next_seqno, _isn); }
+    WrappingInt32 next_seqno() const noexcept { return wrap(_next_seqno, _isn); }
     //!@}
 };
 
