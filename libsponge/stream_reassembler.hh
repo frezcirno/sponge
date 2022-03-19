@@ -2,6 +2,7 @@
 #define SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH
 
 #include "byte_stream.hh"
+#include "string_buffer.hh"
 
 #include <cstdint>
 #include <map>
@@ -15,24 +16,25 @@ class StreamReassembler {
 
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
-    std::map<uint64_t, std::string> _cache{};
+    std::map<uint64_t, StringBuffer> _cache{};
     size_t _unass_bytes{}, _eof;
-    size_t assemble(const std::string &data) { return _output.write(data); }
+    size_t assemble(const StringBuffer &data) { return _output.write(data.copy()); }
     uint64_t unassembled() const { return _output.bytes_written(); }
     uint64_t win_end() const { return _output.bytes_read() + _capacity; }
-    void __cache_add(const uint64_t index, const std::string_view &data) {
+    void __cache_add(const decltype(_cache)::const_iterator &it, const uint64_t index, const StringBuffer &data) {
         _unass_bytes += data.size();
-        _cache[index] = data;
+        _cache.insert(it, {index, data});
     }
-    void __cache_del(const uint64_t index) {
-        _unass_bytes -= _cache[index].size();
-        _cache.erase(index);
+    void __cache_add(const decltype(_cache)::const_iterator &it, const uint64_t index, StringBuffer &&data) {
+        _unass_bytes += data.size();
+        _cache.insert(it, {index, std::move(data)});
+    }
+    void __cache_del(const decltype(_cache)::const_iterator &it) {
+        _unass_bytes -= it->second.size();
+        _cache.erase(it);
     }
     bool cache_push(const uint64_t index, const std::string &data);
-    static std::pair<uint64_t, std::string_view> clamp(const size_t index,
-                                                       const std::string &data,
-                                                       uint64_t start,
-                                                       uint64_t end);
+    bool cache_push(const uint64_t index, std::string &&data);
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
@@ -49,6 +51,7 @@ class StreamReassembler {
     //! \param index indicates the index (place in sequence) of the first byte in `data`
     //! \param eof the last byte of `data` will be the last byte in the entire stream
     void push_substring(const std::string &data, const uint64_t index, const bool eof);
+    void push_substring(std::string &&data, const uint64_t index, const bool eof);
 
     //! \name Access the reassembled byte stream
     //!@{
