@@ -18,16 +18,13 @@ class StreamReassembler {
     size_t _capacity;    //!< The maximum number of bytes
     std::map<uint64_t, StringBuffer> _cache{};
     size_t _unass_bytes{}, _eof;
-    size_t assemble(const StringBuffer &data) { return _output.write(data.copy()); }
+    size_t assemble(const StringBuffer &data) { return _output.write(data); }
     uint64_t unassembled() const { return _output.bytes_written(); }
     uint64_t win_end() const { return _output.bytes_read() + _capacity; }
-    void __cache_add(const decltype(_cache)::const_iterator &it, const uint64_t index, const StringBuffer &data) {
+    template <typename T>
+    void __cache_add(const decltype(_cache)::const_iterator &it, const uint64_t index, T &&data) {
         _unass_bytes += data.size();
-        _cache.insert(it, {index, data});
-    }
-    void __cache_add(const decltype(_cache)::const_iterator &it, const uint64_t index, StringBuffer &&data) {
-        _unass_bytes += data.size();
-        _cache.insert(it, {index, std::move(data)});
+        _cache.insert(it, {index, std::forward<T>(data)});
     }
     void __cache_del(const decltype(_cache)::const_iterator &it) {
         _unass_bytes -= it->second.size();
@@ -50,8 +47,22 @@ class StreamReassembler {
     //! \param data the substring
     //! \param index indicates the index (place in sequence) of the first byte in `data`
     //! \param eof the last byte of `data` will be the last byte in the entire stream
-    void push_substring(const std::string &data, const uint64_t index, const bool eof);
-    void push_substring(std::string &&data, const uint64_t index, const bool eof);
+    template <typename T>
+    void push_substring(T &&data, const size_t index, const bool eof) {
+        if (eof)
+            _eof = index + data.size();
+
+        decltype(_cache)::iterator it;
+        if (data.size() && cache_push(index, std::forward<T>(data))) {
+            while (_cache.size() && (it = _cache.begin())->first <= unassembled()) {
+                assemble(it->second);
+                __cache_del(it);
+            }
+        }
+
+        if (unassembled() == _eof)
+            _output.end_input();
+    }
 
     //! \name Access the reassembled byte stream
     //!@{

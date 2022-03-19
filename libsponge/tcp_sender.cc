@@ -28,11 +28,10 @@ void TCPSender::fill_window() {
             seg_size++;
         }
 
-        if (seg_size < left_win) {
-            size_t readn = min(TCPConfig::MAX_PAYLOAD_SIZE, left_win - seg_size);
-            auto data = stream_in().read(readn);
-            seg_size += data.size();
-            seg.payload() = move(data);
+        if (size_t remain = left_win - seg_size; remain > 0) {
+            size_t readn = min(TCPConfig::MAX_PAYLOAD_SIZE, remain);
+            seg.payload() = stream_in().read(readn);
+            seg_size += seg.payload().size();
         }
 
         if (seg_size < left_win && !fin_sent() && stream_in().eof()) {
@@ -45,8 +44,8 @@ void TCPSender::fill_window() {
 
         seg.header().seqno = wrap(_next_seqno, _isn);
         _next_seqno += seg_size;
-        _segments_out.push(seg);
-        _write_queue.push_back(seg);
+        segments_out().push(seg);
+        _write_queue.push_back(move(seg));
         if (_timer.stopped())
             _timer.start();
     }
@@ -77,10 +76,10 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     if (write_out) {
         _retrans_cnt = 0;
         _timer.setup(_initial_retransmission_timeout);
-        _timer.reset();
         if (!_write_queue.empty())
             _timer.start();
-        fill_window();
+        else
+            _timer.reset();
     }
 }
 

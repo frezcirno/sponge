@@ -8,33 +8,36 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (!active())
         return;
 
-    if (!_sender.syn_sent() && seg.header().ack)
-        return;
-
     if (seg.header().rst) {
         _set_error();
         return;
     }
 
-    _time_since_last_segment_received = 0;
-
+    bool need_flush = false;
     if (seg.header().ack) {
+        if (!_sender.syn_sent())
+            return;
+
         _sender.ack_received(seg.header().ackno, seg.header().win);
         _sender.fill_window();
-        _sender_flush();
+        need_flush = true;
     }
 
     _receiver.segment_received(seg);
+    _time_since_last_segment_received = 0;
 
     if (seg.length_in_sequence_space()) {
         _sender.fill_window();
         if (_sender.segments_out().empty())
             _sender.send_empty_segment();
-        _sender_flush();
+        need_flush = true;
     } else if (_receiver.syn_rcvd() && seg.header().seqno == _receiver.ackno().value() - 1) {
         _sender.send_empty_segment();
-        _sender_flush();
+        need_flush = true;
     }
+
+    if (need_flush)
+        _sender_flush();
 
     if (_receiver.fin_rcvd() && !outbound_stream().eof())
         _linger_after_streams_finish = false;
@@ -44,8 +47,8 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
 //! \returns `true` if either stream is still running or if the TCPConnection is lingering
 //! after both streams have finished (e.g. to ACK retransmissions from the peer)
 bool TCPConnection::active() const {
-    if (_error)
-        return false;
+    if (!_active)
+        return _active;
 
     if (!_receiver.fin_rcvd() || !outbound_stream().eof() || _sender.bytes_in_flight())
         return true;

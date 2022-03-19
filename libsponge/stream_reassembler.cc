@@ -80,34 +80,5 @@ bool StreamReassembler::cache_push(const uint64_t index, std::string &&data) {
 //! \details This function accepts a substring (aka a segment) of bytes,
 //! possibly out-of-order, from the logical stream, and assembles any newly
 //! contiguous substrings and writes them into the output stream in order.
-void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
-    if (eof)
-        _eof = index + data.size();
-
-    decltype(_cache)::iterator it;
-    if (data.size() && cache_push(index, data)) {
-        while (_cache.size() && (it = _cache.begin())->first <= unassembled()) {
-            assemble(it->second);
-            __cache_del(it);
-        }
-    }
-
-    if (unassembled() == _eof)
-        _output.end_input();
-}
-
-void StreamReassembler::push_substring(string &&data, const size_t index, const bool eof) {
-    if (eof)
-        _eof = index + data.size();
-
-    decltype(_cache)::iterator it;
-    if (data.size() && cache_push(index, move(data))) {
-        while (_cache.size() && (it = _cache.begin())->first <= unassembled()) {
-            assemble(it->second);
-            __cache_del(it);
-        }
-    }
-
-    if (unassembled() == _eof)
-        _output.end_input();
-}
+/*template <typename T>
+void StreamReassembler::push_substring(T &&data, const size_t index, const bool eof);*/

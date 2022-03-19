@@ -25,6 +25,8 @@ class TCPConnection {
 
     bool _error{false};
 
+    bool _active{true};
+
   public:
     ByteStream &outbound_stream() { return _sender.stream_in(); }
 
@@ -44,9 +46,10 @@ class TCPConnection {
     }
 
     void __set_ack(TCPSegment &seg) const {
-        if (_receiver.ackno().has_value()) {
+        auto ackno = _receiver.ackno();
+        if (ackno.has_value()) {
             seg.header().ack = true;
-            seg.header().ackno = _receiver.ackno().value();
+            seg.header().ackno = ackno.value();
             seg.header().win = std::min(static_cast<size_t>(UINT16_MAX), _receiver.window_size());
         }
     }
@@ -56,6 +59,7 @@ class TCPConnection {
         inbound_stream().set_error();
         _linger_after_streams_finish = false;
         _error = true;
+        _active = false;
     }
 
     void _reset() {

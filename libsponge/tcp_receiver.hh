@@ -24,14 +24,7 @@ class TCPReceiver {
     bool syn_rcvd() const noexcept { return _isn.has_value(); }
     bool fin_rcvd() const noexcept { return stream_out().input_ended(); }
 
-    uint64_t ackno_absolute() const noexcept {
-        uint64_t ack = stream_out().bytes_written();
-        if (syn_rcvd())
-            ack++;
-        if (fin_rcvd())
-            ack++;
-        return ack;
-    }
+    uint64_t ackno_absolute() const noexcept { return stream_out().bytes_written() + syn_rcvd() + fin_rcvd(); }
 
   public:
     //! \brief Construct a TCP receiver

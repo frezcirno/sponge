@@ -50,6 +50,30 @@ size_t ByteStream::write(const string &data) {
     return data_size;
 }
 
+size_t ByteStream::write(const StringBuffer &data) {
+    size_t data_size = data.size();
+
+    if (!data_size)
+        return 0;
+
+    if (data_size + _size > _cap) {
+        size_t left = _cap - _size;
+
+        if (!left)
+            return 0;
+
+        _data.push_back(data.substr(0, left));
+        _size = _cap;
+        _has_write += left;
+        return left;
+    }
+
+    _data.push_back(data);
+    _size += data_size;
+    _has_write += data_size;
+    return data_size;
+}
+
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const {
     string res;
@@ -59,11 +83,11 @@ string ByteStream::peek_output(const size_t len) const {
 
     while (it != _data.end() && l >= it->size()) {
         l -= it->size();
-        res.append(*it++);
+        res.append((it++)->view());
     }
 
     if (it != _data.end() && l)
-        res.append(it->str().substr(0, l));
+        res.append(it->view().substr(0, l));
 
     return res;
 }
@@ -97,12 +121,12 @@ std::string ByteStream::read(const size_t len) {
 
     while (_data.size() && l >= _data.front().size()) {
         l -= _data.front().size();
-        res.append(_data.front());
+        res.append(_data.front().view());
         _data.pop_front();
     }
 
     if (_data.size() && l) {
-        res.append(_data.front().str().substr(0, l));
+        res.append(_data.front().view().substr(0, l));
         _data.front().remove_prefix(l);
     }
 

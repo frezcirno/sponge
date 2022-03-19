@@ -3,17 +3,16 @@
 using namespace std;
 
 void TCPReceiver::segment_received(const TCPSegment &seg) {
-    auto &&header = seg.header();
+    const auto &header = seg.header();
 
-    if (!(syn_rcvd() ^ header.syn))
+    if (!(header.syn ^ syn_rcvd()))
         return;
 
-    if (header.syn)
+    if (header.syn) {
         _isn = header.seqno;
-
-    if (syn_rcvd()) {
-        uint64_t index = unwrap(header.seqno, _isn.value(), ackno_absolute());
-
-        _reassembler.push_substring(seg.payload().copy(), header.syn ? 0 : index - 1, header.fin);
+        _reassembler.push_substring(seg.payload().copy(), 0, header.fin);
+    } else { /* syn_rcvd() */
+        _reassembler.push_substring(
+            seg.payload().copy(), unwrap(header.seqno, _isn.value(), ackno_absolute()) - 1, header.fin);
     }
 }
